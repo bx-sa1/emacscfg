@@ -1,3 +1,6 @@
-elpa/
+staright/
 auto-save-list/
 eln-cache/
+tree-sitter/
+ido.last
+tramp
