@@ -1,6 +1,12 @@
-straight/
+elpaca/
 auto-save-list/
 eln-cache/
 tree-sitter/
+
 ido.last
 tramp
+projects
+recentf
+ac-comphist.dat
+
+**/*.~undo-tree~

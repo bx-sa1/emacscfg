@@ -5,25 +5,51 @@
   (find-file "~/.config/emacs/init.el"))
 
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+(add-to-list 'custom-theme-load-path (expand-file-name "lisp" user-emacs-directory))
 
-;; bootstrap straight.el
-(setq straight-use-package-by-default t)
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name
-        "straight/repos/straight.el/bootstrap.el"
-        (or (bound-and-true-p straight-base-dir)
-            user-emacs-directory)))
-      (bootstrap-version 7))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
+;; bootstrap elpaca
+(defvar elpaca-installer-version 0.11)
+(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
+(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+                              :ref nil :depth 1 :inherit ignore
+                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+                              :build (:not elpaca--activate-package)))
+(let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
+       (build (expand-file-name "elpaca/" elpaca-builds-directory))
+       (order (cdr elpaca-order))
+       (default-directory repo))
+  (add-to-list 'load-path (if (file-exists-p build) build repo))
+  (unless (file-exists-p repo)
+    (make-directory repo t)
+    (when (<= emacs-major-version 28) (require 'subr-x))
+    (condition-case-unless-debug err
+        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+                                                  ,@(when-let* ((depth (plist-get order :depth)))
+                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
+                                                  ,(plist-get order :repo) ,repo))))
+                  ((zerop (call-process "git" nil buffer t "checkout"
+                                        (or (plist-get order :ref) "--"))))
+                  (emacs (concat invocation-directory invocation-name))
+                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+                  ((require 'elpaca))
+                  ((elpaca-generate-autoloads "elpaca" repo)))
+            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+          (error "%s" (with-current-buffer buffer (buffer-string))))
+      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+  (unless (require 'elpaca-autoloads nil t)
+    (require 'elpaca)
+    (elpaca-generate-autoloads "elpaca" repo)
+    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+(add-hook 'after-init-hook #'elpaca-process-queues)
+(elpaca `(,@elpaca-order))
 (require 'use-package)
+(setq use-package-always-ensure 1)
+(elpaca elpaca-use-package
+  (elpaca-use-package-mode))
 
 ;; defaults
 (require 'sensible-defaults)
@@ -33,10 +59,11 @@
 
 ;; setup
 (use-package emacs
-  :straight nil
+  :ensure nil
   :init
   (scroll-bar-mode -1)
   (tool-bar-mode -1)
+  (window-divider-mode 1)
   (electric-pair-mode 1)
   (icomplete-vertical-mode 1)
   (fido-mode 1)
@@ -53,7 +80,7 @@
 
 ;; packages
 (use-package eglot
-  :straight nil
+  :ensure nil
   :hook (prog-mode . eglot-ensure)
   :bind (:map eglot-mode-map
 	      ("C-c r n" . #'eglot-rename)
@@ -61,7 +88,7 @@
 	      ("C-c r f" . #'eglot-format)))
 
 (use-package flymake
-  :straight nil
+  :ensure nil
   :hook (prog-mode . flymake-mode)
   :bind (:map flymake-mode-map
               ("C-c ! n" . flymake-goto-next-error)
@@ -69,11 +96,12 @@
               ("C-c ! l" . flymake-show-diagnostics-buffer)))
 
 (use-package eldoc
-  :straight nil
+  :ensure nil
   :init
   (global-eldoc-mode))
 
 (use-package treesit-auto
+  :ensure t
   :custom
   (treesit-auto-install 'prompt)
   :config
@@ -81,6 +109,7 @@
   (global-treesit-auto-mode))
 
 (use-package meow
+  :ensure t
   :init
   (defun meow-setup ()
   (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
@@ -168,45 +197,79 @@
   (meow-setup)
   (meow-global-mode 1))
 
+(use-package undo-tree
+  :ensure t
+  :config
+  (global-undo-tree-mode))
+
 (use-package which-key
+  :ensure t
   :config
   (which-key-mode))
 
-(use-package ewal
-  :init (setq ewal-use-built-in-always-p nil))
-
-(use-package ewal-spacemacs-themes
-  :init (progn
-          (show-paren-mode +1)
-          (global-hl-line-mode))
-  :config (progn
-            (load-theme 'ewal-spacemacs-modern t)
-            (enable-theme 'ewal-spacemacs-modern)))
+(use-package base16-theme
+  :ensure t
+  :config
+  (load-theme 'base16-wal t))
 
 (use-package doom-modeline
+  :ensure t
   :init (doom-modeline-mode 1))
 
-(use-package sudo-edit)
+(use-package sudo-edit :ensure t)
+
+(use-package dashboard
+  :ensure t
+  :config
+  (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
+  (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
+  (dashboard-setup-startup-hook))
 
 ;; langs
 (use-package markdown-mode
+  :ensure t
   :magic "\\.md\\'")
 
 (use-package rust-mode
   :defer t
+  :ensure t
   :init
   (setq rust-mode-treesitter-derive t))
 
 (use-package gdscript-mode
   :defer t
-  :straight (gdscript-mode
-             :type git
+  :ensure (gdscript-mode
              :host github
              :repo "godotengine/emacs-gdscript-mode")
   :custom
   (gdscript-eglot-version 4.5))
 
+(use-package sclang
+  :defer t
+  :ensure (sclang
+	     :host github
+	     :repo "supercollider/scel"
+	     :files (:default "el/*.el")))
+
+(use-package sclang-extensions
+  :after sclang
+  :defer t
+  :ensure t
+  :hook (sclang-mode-hook . sclang-extensions-mode))
+
+(use-package csound-mode
+  :ensure (csound-mode
+	   :host github
+	   :repo "hlolli/csound-mode")
+  :mode (("\\.csd\\'" . csound-mode)
+     ("\\.orc\\'" . csound-mode)
+     ("\\.sco\\'" . csound-mode)
+     ("\\.udo\\'" . csound-mode)))
+
+(use-package meson-mode
+  :defer t
+  :ensure t)
 
 ;; custom
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-(load custom-file)
+(add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
