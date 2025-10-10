@@ -1,17 +1,20 @@
 ;;; -*- lexical-binding: t; -*-
+(defun user-emacs-directory-expand (file)
+    "Expand FILE path in user Emacs directory."
+    (expand-file-name file user-emacs-directory))
 (defun bx-sa1/open-init-file ()
   "Open this very file."
   (interactive)
-  (find-file "~/.config/emacs/init.el"))
+  (find-file (expand-file-name "init.el" user-emacs-directory)))
 
-(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
-(add-to-list 'custom-theme-load-path (expand-file-name "lisp" user-emacs-directory))
+(add-to-list 'load-path (user-emacs-directory-expand "lisp"))
+(add-to-list 'custom-theme-load-path (user-emacs-directory-expand "lisp"))
 
 ;; bootstrap elpaca
 (defvar elpaca-installer-version 0.11)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
+(defvar elpaca-directory (user-emacs-directory-expand "elpaca/"))
+(defvar elpaca-builds-directory (user-emacs-directory-expand "builds/"))
+(defvar elpaca-repos-directory (user-emacs-directory-expand "repos/"))
 (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
                               :ref nil :depth 1 :inherit ignore
                               :files (:defaults "elpaca-test.el" (:exclude "extensions"))
@@ -73,9 +76,11 @@
   (advice-add 'completion-at-point :after #'minibuffer-hide-completions)
   :custom
   (icomplete-in-buffer t)
-  :bind (("C-c ;" . #'execute-extended-command)
-	 ("C-c U" . #'insert-char)
-	 ("C-c e" . #'bx-sa1/open-init-file))
+  (help-at-pt-display-when-idle t)
+  :bind (("C-c U" . #'insert-char)
+	 ("C-c e" . #'bx-sa1/open-init-file)
+	 ("C-c b n" . #'next-buffer)
+	 ("C-c b p" . #'previous-buffer))
   :hook ((prog-mode-hook . display-line-numbers-mode)))
 
 ;; packages
@@ -130,7 +135,8 @@
    '("9" . meow-digit-argument)
    '("0" . meow-digit-argument)
    '("/" . meow-keypad-describe-key)
-   '("?" . meow-cheatsheet))
+   '("?" . meow-cheatsheet)
+   '("<SPC>" . meow-M-x))
   (meow-normal-define-key
    '("0" . meow-expand-0)
    '("9" . meow-expand-9)
@@ -181,11 +187,9 @@
    '("R" . meow-swap-grab)
    '("s" . meow-kill)
    '("t" . meow-till)
-   '("u" . meow-undo)
-   '("U" . meow-undo-in-selection)
+   '("u" . undo-tree-undo)
+   '("U" . undo-tree-redo)
    '("v" . meow-visit)
-   '("w" . meow-mark-word)
-   '("W" . meow-mark-symbol)
    '("x" . meow-line)
    '("X" . meow-goto-line)
    '("y" . meow-save)
@@ -200,6 +204,7 @@
 (use-package undo-tree
   :ensure t
   :config
+  (setq undo-tree-history-directory-alist '(("." . (user-emacs-directory-expand "undo"))))
   (global-undo-tree-mode))
 
 (use-package which-key
@@ -215,6 +220,27 @@
 (use-package doom-modeline
   :ensure t
   :init (doom-modeline-mode 1))
+
+;; (use-package nano-modeline
+;;     :ensure t
+;;     :init
+;;     (nano-modeline-prog-mode t)
+;;     :custom
+;;     (nano-modeline-position 'nano-modeline-footer)
+;;     :hook
+;;     (prog-mode           . nano-modeline-prog-mode)
+;;     (text-mode           . nano-modeline-text-mode)
+;;     (org-mode            . nano-modeline-org-mode)
+;;     (pdf-view-mode       . nano-modeline-pdf-mode)
+;;     (mu4e-headers-mode   . nano-modeline-mu4e-headers-mode)
+;;     (mu4e-view-mode      . nano-modeline-mu4e-message-mode)
+;;     (elfeed-show-mode    . nano-modeline-elfeed-entry-mode)
+;;     (elfeed-search-mode  . nano-modeline-elfeed-search-mode)
+;;     (term-mode           . nano-modeline-term-mode)
+;;     (xwidget-webkit-mode . nano-modeline-xwidget-mode)
+;;     (messages-buffer-mode . nano-modeline-message-mode)
+;;     (org-capture-mode    . nano-modeline-org-capture-mode)
+;;     (org-agenda-mode     . nano-modeline-org-agenda-mode))
 
 (use-package sudo-edit :ensure t)
 
@@ -262,14 +288,24 @@
 	   :host github
 	   :repo "hlolli/csound-mode")
   :mode (("\\.csd\\'" . csound-mode)
-     ("\\.orc\\'" . csound-mode)
-     ("\\.sco\\'" . csound-mode)
-     ("\\.udo\\'" . csound-mode)))
+	 ("\\.orc\\'" . csound-mode)
+	 ("\\.sco\\'" . csound-mode)
+	 ("\\.udo\\'" . csound-mode)))
+
+(use-package extempore-mode
+  :ensure t
+  :defer t)
 
 (use-package meson-mode
   :defer t
   :ensure t)
 
+(use-package slime
+  :ensure t
+  :hook (lisp-mode . slime-mode)
+  :init
+  (setq inferior-lisp-program "sbcl"))
+
 ;; custom
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+(setq custom-file (user-emacs-directory-expand "custom.el"))
 (add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
