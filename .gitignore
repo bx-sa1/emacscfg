@@ -1,12 +1,19 @@
 elpaca/
+builds/
+repos/
+elpa/
+melpa/
+
 auto-save-list/
 eln-cache/
 tree-sitter/
+undo/
+
+backup/
+auto-save/
 
 ido.last
 tramp
 projects
 recentf
 ac-comphist.dat
-
-**/*.~undo-tree~

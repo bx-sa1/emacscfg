@@ -1,7 +1,7 @@
 ;;; -*- lexical-binding: t; -*-
-(defun user-emacs-directory-expand (file)
+(defun user-emacs-directory-expand (path)
     "Expand FILE path in user Emacs directory."
-    (expand-file-name file user-emacs-directory))
+    (expand-file-name path user-emacs-directory))
 (defun bx-sa1/open-init-file ()
   "Open this very file."
   (interactive)
@@ -54,11 +54,8 @@
 (elpaca elpaca-use-package
   (elpaca-use-package-mode))
 
-;; defaults
-(require 'sensible-defaults)
-(sensible-defaults/use-all-settings)
-(sensible-defaults/use-all-keybindings)
-(sensible-defaults/backup-to-temp-directory)
+(define-prefix-command 'ctl-z-map)
+(global-set-key "\C-z" ctl-z-map)
 
 ;; setup
 (use-package emacs
@@ -68,22 +65,71 @@
   (tool-bar-mode -1)
   (window-divider-mode 1)
   (electric-pair-mode 1)
-  (icomplete-vertical-mode 1)
-  (fido-mode 1)
-  (global-completion-preview-mode 1)
-  (setq gc-cons-threshold 100000000
-	read-process-output-max (* 1024 1024)) ; 1mb)
-  (advice-add 'completion-at-point :after #'minibuffer-hide-completions)
+  (transient-mark-mode 1)
+  (delete-selection-mode 1)
+  (show-paren-mode 1)
+  (global-font-lock-mode 1)
+  (global-auto-revert-mode 1)
+  (global-hl-line-mode 1)
+  (setq gc-cons-threshold 200000000 ;;Allow 20MB of memory before calling GC
+	read-process-output-max (* 1024 1024) ;;1mb
+	vc-follow-symlinks t ;;follow symlinks
+	sentence-end-double-space nil ;;dont assume that sentences should have two spaces after periods
+	require-final-newline t ;;append newline on file save
+	confirm-kill-emacs 'y-or-n-p
+	inhibit-startup-message t ;;inhibit startup message
+	initial-scratch-message nil ;;clear scratch buffer
+	show-paren-delay 0.0
+	visible-bell t ;;flash screen on problematic operation
+	backup-directory-alist `((".*" . ,(user-emacs-directory-expand "backup")))
+	auto-save-file-name-transforms `((".*" ,(user-emacs-directory-expand "auto-save"))))
+  (fset 'yes-or-no-p 'y-or-n-p)
   :custom
-  (icomplete-in-buffer t)
   (help-at-pt-display-when-idle t)
-  :bind (("C-c U" . #'insert-char)
-	 ("C-c e" . #'bx-sa1/open-init-file)
-	 ("C-c b n" . #'next-buffer)
-	 ("C-c b p" . #'previous-buffer))
-  :hook ((prog-mode-hook . display-line-numbers-mode)))
+  :bind (("C-z U" . #'insert-char)
+	 ("C-z e" . #'bx-sa1/open-init-file)
+	 ("C-z b n" . #'next-buffer)
+	 ("C-z b p" . #'previous-buffer))
+  :hook ((prog-mode . display-line-numbers-mode)
+	 (prog-mode . subword-mode)
+	 (before-save . delete-trailing-whitespace)
+	 (after-save . executable-make-buffer-file-executable-if-script-p)
+	 (before-save . (lambda ()
+              (when buffer-file-name
+                (let ((dir (file-name-directory buffer-file-name)))
+                  (when (and (not (file-exists-p dir))
+                             (y-or-n-p (format "Directory %s does not exist. Create it?" dir)))
+                    (make-directory dir t))))))))
 
 ;; packages
+(use-package icomplete
+  :ensure nil
+  :bind (:map icomplete-minibuffer-map
+              ("C-n" . icomplete-forward-completions)
+              ("C-p" . icomplete-backward-completions)
+              ("C-v" . icomplete-vertical-toggle)
+              ("RET" . icomplete-force-complete-and-exit))
+  :hook
+  (after-init . (lambda ()
+                  (fido-mode -1)
+                  ;; (icomplete-mode 1)
+                  (icomplete-vertical-mode 1)
+                  ))
+  :config
+  (setq tab-always-indent 'complete)  ;; Starts completion with TAB
+  (setq icomplete-delay-completions-threshold 0)
+  (setq icomplete-compute-delay 0)
+  (setq icomplete-show-matches-on-no-input t)
+  (setq icomplete-hide-common-prefix nil)
+  (setq icomplete-prospects-height 10)
+  (setq icomplete-separator " . ")
+  (setq icomplete-with-completion-tables t)
+  (setq icomplete-in-buffer t)
+  (setq icomplete-max-delay-chars 0)
+  (setq icomplete-scroll t)
+  (advice-add 'completion-at-point
+              :after #'minibuffer-hide-completions))
+
 (use-package eglot
   :ensure nil
   :hook (prog-mode . eglot-ensure)
@@ -113,98 +159,20 @@
   (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode))
 
-(use-package meow
+(use-package god-mode
   :ensure t
-  :init
-  (defun meow-setup ()
-  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
-  (meow-motion-define-key
-   '("j" . meow-next)
-   '("k" . meow-prev)
-   '("<escape>" . ignore))
-  (meow-leader-define-key
-   ;; Use SPC (0-9) for digit arguments.
-   '("1" . meow-digit-argument)
-   '("2" . meow-digit-argument)
-   '("3" . meow-digit-argument)
-   '("4" . meow-digit-argument)
-   '("5" . meow-digit-argument)
-   '("6" . meow-digit-argument)
-   '("7" . meow-digit-argument)
-   '("8" . meow-digit-argument)
-   '("9" . meow-digit-argument)
-   '("0" . meow-digit-argument)
-   '("/" . meow-keypad-describe-key)
-   '("?" . meow-cheatsheet)
-   '("<SPC>" . meow-M-x))
-  (meow-normal-define-key
-   '("0" . meow-expand-0)
-   '("9" . meow-expand-9)
-   '("8" . meow-expand-8)
-   '("7" . meow-expand-7)
-   '("6" . meow-expand-6)
-   '("5" . meow-expand-5)
-   '("4" . meow-expand-4)
-   '("3" . meow-expand-3)
-   '("2" . meow-expand-2)
-   '("1" . meow-expand-1)
-   '("-" . negative-argument)
-   '(";" . meow-reverse)
-   '("," . meow-inner-of-thing)
-   '("." . meow-bounds-of-thing)
-   '("[" . meow-beginning-of-thing)
-   '("]" . meow-end-of-thing)
-   '("a" . meow-append)
-   '("A" . meow-open-below)
-   '("b" . meow-back-word)
-   '("B" . meow-back-symbol)
-   '("c" . meow-change)
-   '("d" . meow-delete)
-   '("D" . meow-backward-delete)
-   '("e" . meow-next-word)
-   '("E" . meow-next-symbol)
-   '("f" . meow-find)
-   '("g" . meow-cancel-selection)
-   '("G" . meow-grab)
-   '("h" . meow-left)
-   '("H" . meow-left-expand)
-   '("i" . meow-insert)
-   '("I" . meow-open-above)
-   '("j" . meow-next)
-   '("J" . meow-next-expand)
-   '("k" . meow-prev)
-   '("K" . meow-prev-expand)
-   '("l" . meow-right)
-   '("L" . meow-right-expand)
-   '("m" . meow-join)
-   '("n" . meow-search)
-   '("o" . meow-block)
-   '("O" . meow-to-block)
-   '("p" . meow-yank)
-   '("q" . meow-quit)
-   '("Q" . meow-goto-line)
-   '("r" . meow-replace)
-   '("R" . meow-swap-grab)
-   '("s" . meow-kill)
-   '("t" . meow-till)
-   '("u" . undo-tree-undo)
-   '("U" . undo-tree-redo)
-   '("v" . meow-visit)
-   '("x" . meow-line)
-   '("X" . meow-goto-line)
-   '("y" . meow-save)
-   '("Y" . meow-sync-grab)
-   '("z" . meow-pop-selection)
-   '("'" . repeat)
-   '("<escape>" . ignore)))
-  :config
-  (meow-setup)
-  (meow-global-mode 1))
+  :bind (("<escape>" . god-mode-all)
+	 (:map god-local-mode-map
+	       ("z" . #'repeat))))
+
+(use-package avy
+  :ensure t
+  :bind ("M-s" . avy-goto-char))
 
 (use-package undo-tree
   :ensure t
   :config
-  (setq undo-tree-history-directory-alist '(("." . (user-emacs-directory-expand "undo"))))
+  (setq undo-tree-history-directory-alist `(("." . ,(user-emacs-directory-expand "undo"))))
   (global-undo-tree-mode))
 
 (use-package which-key
@@ -220,29 +188,6 @@
 (use-package doom-modeline
   :ensure t
   :init (doom-modeline-mode 1))
-
-;; (use-package nano-modeline
-;;     :ensure t
-;;     :init
-;;     (nano-modeline-prog-mode t)
-;;     :custom
-;;     (nano-modeline-position 'nano-modeline-footer)
-;;     :hook
-;;     (prog-mode           . nano-modeline-prog-mode)
-;;     (text-mode           . nano-modeline-text-mode)
-;;     (org-mode            . nano-modeline-org-mode)
-;;     (pdf-view-mode       . nano-modeline-pdf-mode)
-;;     (mu4e-headers-mode   . nano-modeline-mu4e-headers-mode)
-;;     (mu4e-view-mode      . nano-modeline-mu4e-message-mode)
-;;     (elfeed-show-mode    . nano-modeline-elfeed-entry-mode)
-;;     (elfeed-search-mode  . nano-modeline-elfeed-search-mode)
-;;     (term-mode           . nano-modeline-term-mode)
-;;     (xwidget-webkit-mode . nano-modeline-xwidget-mode)
-;;     (messages-buffer-mode . nano-modeline-message-mode)
-;;     (org-capture-mode    . nano-modeline-org-capture-mode)
-;;     (org-agenda-mode     . nano-modeline-org-agenda-mode))
-
-(use-package sudo-edit :ensure t)
 
 (use-package dashboard
   :ensure t
