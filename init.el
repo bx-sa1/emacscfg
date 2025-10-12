@@ -54,9 +54,6 @@
 (elpaca elpaca-use-package
   (elpaca-use-package-mode))
 
-(define-prefix-command 'ctl-z-map)
-(global-set-key "\C-z" ctl-z-map)
-
 ;; setup
 (use-package emacs
   :ensure nil
@@ -86,10 +83,10 @@
   (fset 'yes-or-no-p 'y-or-n-p)
   :custom
   (help-at-pt-display-when-idle t)
-  :bind (("C-z U" . #'insert-char)
-	 ("C-z e" . #'bx-sa1/open-init-file)
-	 ("C-z b n" . #'next-buffer)
-	 ("C-z b p" . #'previous-buffer))
+  :bind (("C-c U" . #'insert-char)
+	 ("C-c e" . #'bx-sa1/open-init-file)
+	 ("C-c b n" . #'next-buffer)
+	 ("C-c b p" . #'previous-buffer))
   :hook ((prog-mode . display-line-numbers-mode)
 	 (prog-mode . subword-mode)
 	 (before-save . delete-trailing-whitespace)
@@ -159,11 +156,19 @@
   (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode))
 
-(use-package god-mode
+(use-package evil
   :ensure t
-  :bind (("<escape>" . god-mode-all)
-	 (:map god-local-mode-map
-	       ("z" . #'repeat))))
+  :init
+  (setq evil-want-integration t
+	evil-want-keybinding nil
+	evil-undo-system 'undo-tree)
+  :config
+  (evil-mode 1))
+
+(use-package evil-collection
+  :after evil
+  :ensure t
+  :init (evil-collection-init))
 
 (use-package avy
   :ensure t
@@ -178,12 +183,12 @@
 (use-package which-key
   :ensure t
   :config
-  (which-key-mode))
+  (which-key-mode 1))
 
 (use-package base16-theme
   :ensure t
   :config
-  (load-theme 'base16-wal t))
+  (load-theme 'base16-wal t)) ;;custom theme in lisp/base16-wal-theme.el
 
 (use-package doom-modeline
   :ensure t
@@ -195,6 +200,13 @@
   (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
   (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
   (dashboard-setup-startup-hook))
+
+(use-package transient
+  :ensure t)
+
+(use-package magit
+  :after transient
+  :ensure t)
 
 ;; langs
 (use-package markdown-mode
