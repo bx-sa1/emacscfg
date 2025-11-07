@@ -82,6 +82,9 @@
 	auto-save-file-name-transforms `((".*" ,(user-emacs-directory-expand "auto-save"))))
   (fset 'yes-or-no-p 'y-or-n-p)
   :custom
+  (read-extended-command-predicate #'command-completion-default-include-p)
+  (enable-recursive-minibuffers t)
+  (tab-always-complete 'complete)
   (help-at-pt-display-when-idle t)
   :bind (("C-c U" . #'insert-char)
 	 ("C-c e" . #'bx-sa1/open-init-file)
@@ -99,33 +102,37 @@
                     (make-directory dir t))))))))
 
 ;; packages
-(use-package icomplete
-  :ensure nil
-  :bind (:map icomplete-minibuffer-map
-              ("C-n" . icomplete-forward-completions)
-              ("C-p" . icomplete-backward-completions)
-              ("C-v" . icomplete-vertical-toggle)
-              ("RET" . icomplete-force-complete-and-exit))
-  :hook
-  (after-init . (lambda ()
-                  (fido-mode -1)
-                  ;; (icomplete-mode 1)
-                  (icomplete-vertical-mode 1)
-                  ))
+(use-package vertico
+  :ensure t
+  :init
+  (vertico-mode))
+
+(use-package orderless
+  :ensure t
+  :custom
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (orderless-style-dispatchers '(+orderless-consult-dispatch orderless-affix-dispatch))
+  ;; (orderless-component-separator #'orderless-escapable-split-on-space)
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles partial-completion))))
+  (completion-category-defaults nil) ;; Disable defaults, use our settings
+  (completion-pcm-leading-wildcard t)) ;; Emacs 31: partial-completion behaves like substring
+
+(use-package marginalia
+  :ensure t
+  :init
+  (marginalia-mode))
+
+(use-package consult
+  :ensure t
   :config
-  (setq tab-always-indent 'complete)  ;; Starts completion with TAB
-  (setq icomplete-delay-completions-threshold 0)
-  (setq icomplete-compute-delay 0)
-  (setq icomplete-show-matches-on-no-input t)
-  (setq icomplete-hide-common-prefix nil)
-  (setq icomplete-prospects-height 10)
-  (setq icomplete-separator " . ")
-  (setq icomplete-with-completion-tables t)
-  (setq icomplete-in-buffer t)
-  (setq icomplete-max-delay-chars 0)
-  (setq icomplete-scroll t)
-  (advice-add 'completion-at-point
-              :after #'minibuffer-hide-completions))
+  (setq completion-in-region-function #'consult-completion-in-region))
+
+(use-package cape
+  :ensure t
+  :bind ("C-c p" . cape-prefix-map)
+  :hook ((completion-at-point-functions . cape-dabbrev)
+	 (completion-at-point-functions . cape-file)))
 
 (use-package eglot
   :ensure nil
@@ -172,7 +179,7 @@
 
 (use-package avy
   :ensure t
-  :bind ("M-s" . avy-goto-char))
+  :bind ("M-g c" . avy-goto-char))
 
 (use-package undo-tree
   :ensure t
@@ -188,7 +195,8 @@
 (use-package base16-theme
   :ensure t
   :config
-  (load-theme 'base16-wal t)) ;;custom theme in lisp/base16-wal-theme.el
+  (setq base16-theme-256-color-source 'colors)
+  (load-theme 'base16-custom t)) ;;custom theme in lisp/base16-wal-theme.el
 
 (use-package doom-modeline
   :ensure t
@@ -203,6 +211,23 @@
 
 (use-package transient
   :ensure t)
+
+(use-package ligature
+  :ensure t
+  :init
+  ;; Enable ligatures in programming modes
+  (ligature-set-ligatures 'prog-mode '("www" "**" "***" "**/" "*>" "*/" "\\\\" "\\\\\\" "{-" "::"
+                                       ":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->" "->>"
+                                       "-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
+                                       "#_(" ".-" ".=" ".." "..<" "..." "?=" "??" ";;" "/*" "/**"
+                                       "/=" "/==" "/>" "//" "///" "&&" "||" "||=" "|=" "|>" "^=" "$>"
+                                       "++" "+++" "+>" "=:=" "==" "===" "==>" "=>" "=>>" "<="
+                                       "=<<" "=/=" ">-" ">=" ">=>" ">>" ">>-" ">>=" ">>>" "<*"
+                                       "<*>" "<|" "<|>" "<$" "<$>" "<!--" "<-" "<--" "<->" "<+"
+                                       "<+>" "<=" "<==" "<=>" "<=<" "<>" "<<" "<<-" "<<=" "<<<"
+                                       "<~" "<~~" "</" "</>" "~@" "~-" "~>" "~~" "~~>" "%%"))
+  :config
+  (global-ligature-mode 't))
 
 (use-package magit
   :after transient
@@ -219,6 +244,10 @@
   :init
   (setq rust-mode-treesitter-derive t))
 
+(use-package haskell-mode
+  :defer t
+  :ensure t)
+
 (use-package gdscript-mode
   :defer t
   :ensure (gdscript-mode
@@ -234,12 +263,6 @@
 	     :repo "supercollider/scel"
 	     :files (:default "el/*.el")))
 
-(use-package sclang-extensions
-  :after sclang
-  :defer t
-  :ensure t
-  :hook (sclang-mode-hook . sclang-extensions-mode))
-
 (use-package csound-mode
   :ensure (csound-mode
 	   :host github
@@ -251,7 +274,10 @@
 
 (use-package extempore-mode
   :ensure t
-  :defer t)
+  :defer t
+  :mode "\\.xtm\\'"
+  :init
+  (setq extempore-path "/path/to/extempore/"))
 
 (use-package meson-mode
   :defer t
@@ -262,6 +288,14 @@
   :hook (lisp-mode . slime-mode)
   :init
   (setq inferior-lisp-program "sbcl"))
+
+(use-package lua-mode
+  :defer t
+  :ensure t)
+
+(use-package sfz-mode
+  :defer t
+  :ensure t)
 
 ;; custom
 (setq custom-file (user-emacs-directory-expand "custom.el"))

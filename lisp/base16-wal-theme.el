@@ -8,24 +8,16 @@
 (require 'map)
 
 ;;; Code:
-(deftheme base16-wal)
+(deftheme base16-custom)
 
-(defvar wal-color-filepath "~/.cache/wal/colors.json")
-(setq base16-wal-colors
-      (let* ((json (with-temp-buffer
-		     (insert-file-contents wal-color-filepath)
-		     (goto-char (point-min))
-		     (json-parse-buffer :object-type 'plist)))
-	     (colors (plist-get json :colors)))
-	(flatten-tree
-	 (map-apply
-	  (lambda (k v)
-	    (list
-	     (intern (concat ":base" (format "%02X" (string-to-number (substring (symbol-name k) 6)))))
-	     v))
-	  colors))))
+(defvar color-filepath "~/.cache/flavours/colors.json")
+(setq base16-colors
+      (json (with-temp-buffer
+	      (insert-file-contents color-filepath)
+	      (goto-char (point-min))
+	      (json-parse-buffer :object-type 'plist))))
 
-(base16-theme-define 'base16-wal base16-wal-colors)
+(base16-theme-define 'base16-custom base16-colors)
 
 ;;;###autoload
 (and load-file-name
@@ -34,5 +26,5 @@
                   (file-name-as-directory
                    (file-name-directory load-file-name))))
 
-(provide-theme 'base16-wal)
+(provide-theme 'base16-custom)
 ;;; base16-wal.el ends here
