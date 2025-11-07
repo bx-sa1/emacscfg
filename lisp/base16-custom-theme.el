@@ -12,10 +12,10 @@
 
 (defvar color-filepath "~/.cache/flavours/colors.json")
 (setq base16-colors
-      (json (with-temp-buffer
-	      (insert-file-contents color-filepath)
-	      (goto-char (point-min))
-	      (json-parse-buffer :object-type 'plist))))
+      (with-temp-buffer
+	(insert-file-contents color-filepath)
+	(goto-char (point-min))
+	(json-parse-buffer :object-type 'plist)))
 
 (base16-theme-define 'base16-custom base16-colors)
 
