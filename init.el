@@ -142,6 +142,25 @@
 	      ("C-c r a" . #'eglot-code-actions)
 	      ("C-c r f" . #'eglot-format)))
 
+(use-package dape
+  :ensure t
+  :hook
+  (kill-emacs . dape-breakpoint-save)
+  (after-init . dape-breakpoint-load)
+  :custom
+  ;; Turn on global bindings for setting breakpoints with mouse
+  (dape-breakpoint-global-mode +1)
+
+  ;; Info buffers to the right
+  ;; (dape-buffer-window-arrangement 'right)
+  ;; Info buffers like gud (gdb-mi)
+  ;; (dape-buffer-window-arrangement 'gud)
+  ;; (dape-info-hide-mode-line nil)
+
+  ;; Projectile users
+  ;; (dape-cwd-function #'projectile-project-root)
+  )
+
 (use-package flymake
   :ensure nil
   :hook (prog-mode . flymake-mode)
