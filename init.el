@@ -60,7 +60,7 @@
   :init
   (scroll-bar-mode -1)
   (tool-bar-mode -1)
-  (window-divider-mode 1)
+  ;; (window-divider-mode 1)
   (electric-pair-mode 1)
   (transient-mark-mode 1)
   (delete-selection-mode 1)
@@ -79,7 +79,8 @@
 	show-paren-delay 0.0
 	visible-bell t ;;flash screen on problematic operation
 	backup-directory-alist `((".*" . ,(user-emacs-directory-expand "backup")))
-	auto-save-file-name-transforms `((".*" ,(user-emacs-directory-expand "auto-save"))))
+	auto-save-file-name-transforms `((".*" ,(user-emacs-directory-expand "auto-save")))
+	switch-to-buffer-obey-display-actions t)
   (fset 'yes-or-no-p 'y-or-n-p)
   :custom
   (read-extended-command-predicate #'command-completion-default-include-p)
@@ -87,9 +88,7 @@
   (tab-always-complete 'complete)
   (help-at-pt-display-when-idle t)
   :bind (("C-c U" . #'insert-char)
-	 ("C-c e" . #'bx-sa1/open-init-file)
-	 ("C-c b n" . #'next-buffer)
-	 ("C-c b p" . #'previous-buffer))
+	 ("C-c e" . #'bx-sa1/open-init-file))
   :hook ((prog-mode . display-line-numbers-mode)
 	 (prog-mode . subword-mode)
 	 (before-save . delete-trailing-whitespace)
@@ -102,6 +101,70 @@
                     (make-directory dir t))))))))
 
 ;; packages
+(use-package nerd-icons
+  :ensure t)
+
+(use-package nerd-icons-dired
+  :ensure t)
+
+(use-package dired
+  :ensure nil
+  :config
+  (setq dired-kill-when-opening-new-dired-buffer t))
+
+(use-package ibuffer
+  :ensure nil
+  :bind (("C-x C-b" . ibuffer))
+  :config
+  (setq ibuffer-saved-filter-groups
+	'(("home"
+	   ("Emacs" (and (filename         . "config/emacs*")
+			 (visiting-file)))
+	   ("Prog"  (and (filename         . "/home/me/prog*")
+			 (visiting-file)))
+	   ("Org"   (or  (file-extension    . "org")
+			 (derived-mode      . org-mode)
+			 (derived-mode      . org-agenda-mode)))
+	   ("Mail"  (or  (derived-mode      . rmail-mode)
+			 (derived-mode      . message-mode)))
+	   ("Gnus"  (or  (derived-mode      . gnus-mode)
+			 (saved             . "gnus")))
+	   ("Net"   (or  (mode              . eww-mode)
+			 (derived-mode      . rcirc-mode)
+			 (mode              . elpher-mode)))
+	   ("Music"      (name              . "*MPC"))
+	   ("Dired" (or  (derived-mode      . dired-mode)
+			 (derived-mode      . image-mode)))
+	   ("Proc"       (process))
+	   ("Stars"      (starred-name)))))
+  :hook ((ibuffer-mode . (lambda ()
+			   (ibuffer-switch-to-saved-filter-groups "home"))))
+
+  )
+
+(use-package ibuffer-sidebar
+  :ensure t
+  :bind (("C-c b" . ibuffer-sidebar-toggle-sidebar))
+  :commands (ibuffer-sidebar-toggle-sidebar))
+
+(use-package dired-sidebar
+  :ensure t
+  :bind (("C-c d" . dired-sidebar-toggle-sidebar))
+  :commands (dired-sidebar-toggle-sidebar)
+  :init
+  (add-hook 'dired-sidebar-mode-hook
+            (lambda ()
+              (unless (file-remote-p default-directory)
+                (auto-revert-mode))))
+  :config
+  (push 'toggle-window-split dired-sidebar-toggle-hidden-commands)
+  (push 'rotate-windows dired-sidebar-toggle-hidden-commands)
+
+  (setq dired-sidebar-subtree-line-prefix "__")
+  (setq dired-sidebar-theme 'nerd-icons)
+  (setq dired-sidebar-use-term-integration t)
+  (setq dired-sidebar-use-custom-font t))
+
 (use-package vertico
   :ensure t
   :init
@@ -224,6 +287,7 @@
 (use-package dashboard
   :ensure t
   :config
+  (setq initial-buffer-choice (lambda () (get-buffer-create dashboard-buffer-name)))
   (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
   (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
   (dashboard-setup-startup-hook))
@@ -319,3 +383,5 @@
 ;; custom
 (setq custom-file (user-emacs-directory-expand "custom.el"))
 (add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
+
+;;buffer layout
